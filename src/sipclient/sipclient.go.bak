@@ -1,0 +1,98 @@
+package main
+
+import (
+	//	"fmt"
+	"net"
+	"sip"
+	"time"
+)
+
+const (
+	UNKNOWN = iota
+	LOGIN
+	REGISTER
+	QUERYDEVICE
+	LIVEPLAY
+	BREAKPLAY
+	LOGOUT
+)
+
+//WWW-Authenticate: Digest nonce="13133944849:f251436a279f25d0b879d2813df6b5b2",algorithm=MD5,realm="1100000000"
+
+//15010000004000000001:1100000000:123456  9E15EFC22491F20D9244C5B6332A334E
+//13133944849:f251436a279f25d0b879d2813df6b5b2
+//REGISTER:sip:1100000000 E29314BF063AA97B770436FAC1AE466A
+func main() {
+	uac := &sip.UASInfo{
+		ServerID:   "11000000002000000001",
+		ServerIP:   "192.168.1.71",
+		ServerPort: "5060",
+		UserName:   "15010000004000000001",
+		Password:   "123456",
+		ClientIP:   "192.168.1.71",
+		ClientPort: "5065",
+		BranchID:   "z9hG4bK-d8754z-e6e9da718d69a968-1d8754z-",
+		Tag:        "ca37f424"}
+
+	uac.GetResponse("1100000000", "13134050430:2c06532dd40a285d34040d78920f402a", "REGISTER")
+	for {		time.Sleep(1e9) }
+
+	conn, err := net.Dial("udp", uac.ServerIP+":"+uac.ServerPort)
+	defer conn.Close()
+
+	if err != nil {
+		println("build socket failed")
+		return
+	}
+
+	go SipEventProc(conn, uac)
+
+	for {
+		time.Sleep(1e9)
+	}
+}
+
+func SipEventProc(conn net.Conn, uac *sip.UASInfo) {
+	status := REGISTER
+	buf := make([]byte, 2048)
+
+	for {
+		if status == REGISTER {
+			request := uac.BuildRegisterRequest()
+			println(request)
+			conn.Write([]byte(request))
+
+			length, err := conn.Read(buf)
+			if err == nil {
+				println(string(buf[:length]))
+			} else {
+				println("register1 read error")
+			}
+
+			errCode, realm, nonce, authMethod, err := sip.ParseRegister1(string(buf[:length]))
+			if errCode == "401" && authMethod == "MD5" {
+				request := uac.BuildRegisterMD5Auth(realm, nonce)
+				println(request)
+				conn.Write([]byte(request))
+				length, err := conn.Read(buf)
+				if err == nil {
+					println(string(buf[:length]))
+				} else {
+					println("register2 read error")
+				}
+
+				errCode, err := sip.ParseRegister2(string(buf[:length]))
+				if err == nil && errCode == "200" {
+					status = QUERYDEVICE
+				}
+			} else {
+				println("register1 error", errCode, authMethod)
+			}
+		} else if status == QUERYDEVICE {
+
+		}
+
+		time.Sleep(3e9)
+	}
+
+}

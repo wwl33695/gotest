@@ -1,0 +1,50 @@
+package sip
+
+import (
+	"strings"
+)
+
+func ParseRegister1(response string) (errCode, realm, nonce, authMethod string, err error) {
+
+	pos := strings.Index(response, " ")
+	pos1 := strings.Index(response[pos+1:], " ")
+	println(pos, pos+pos1+1)
+	errCode = response[pos+1 : pos+pos1+1]
+	println(errCode)
+
+	pos = strings.Index(response, "Authenticate")
+	temp := response[pos:]
+
+	templen := len("realm=\"")
+	pos = strings.Index(temp, "realm=\"")
+	pos1 = strings.Index(temp[pos+templen:], "\"")
+	realm = temp[pos+templen : pos+templen+pos1]
+	println(realm)
+
+	templen = len("nonce=\"")
+	pos = strings.Index(temp, "nonce=\"")
+	pos1 = strings.Index(temp[pos+templen:], "\"")
+	nonce = temp[pos+templen : pos+templen+pos1]
+	println(nonce)
+
+	templen = len("algorithm=")
+	pos = strings.Index(temp, "algorithm=")
+	pos1 = strings.Index(temp[pos+templen:], ",")
+	authMethod = temp[pos+templen : pos+templen+pos1]
+	println(authMethod)
+
+	err = nil
+
+	return
+}
+
+func ParseRegister2(response string) (errCode string, err error) {
+
+	pos := strings.Index(response, " ")
+	pos1 := strings.Index(response[pos+1:], " ")
+	errCode = response[pos+1 : pos+pos1+1]
+
+	err = nil
+
+	return
+}
